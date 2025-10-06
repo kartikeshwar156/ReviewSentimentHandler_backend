@@ -1,0 +1,16 @@
+We have two columns inside our table , one is for sentiment which will have values either 
+positive, negative or neutral, which will be given by our pretrained hugging face model
+
+and then we have other column that is topic, and this will tell what is the "aim" the comment of User is trying to signify
+the aim of the comment can be about price, cleanliness, punctuality, behaviour, taste, etc and many other factors
+
+and these two columns i.e. topic and sentiment, will collectively tell us or the restaurant what were the sentiment of customer and about which topic.
+
+
+def get_reviews(
+    location: Optional[str] = None
+    #        ^^^^^^^^^^^^^^   ^^^^
+    #        Type Hint        Default Value
+):
+
+Optional[str] -> tells that value of 'location' varible can be either of type string, or None, and '= None' is giving a default value of None to the variable
