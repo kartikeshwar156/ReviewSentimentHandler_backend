@@ -1,0 +1,13 @@
+-------------------------------
+where python 
+
+To check python intrepreter
+-------------------------------
+pip list
+
+to list down packages installed in the particular environment you are working in
+-------------------------------
+pip freeze > requirements.txt
+
+to create a requirements.txt file containing list of all those packages installed along with their versions , this filw is requierd during deployment
+-------------------------------

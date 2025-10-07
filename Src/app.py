@@ -21,8 +21,8 @@ import google.genai as genai
 
 import re
 
-from qdrant_client import QdrantClient
-from qdrant_client.models import PointStruct, VectorParams, Distance
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 logger = logging.getLogger(__name__)
@@ -122,6 +122,36 @@ def generateLLMReply(comment: str, comment_sentiment: str) -> str:
     
     print(response.text)
     return response.text
+
+def fetchAllComments():
+    logger.info("fetching all rows with their ids, and text column (representing the customer's comment)")
+    response = supabaseClient.table('Sentimentdata').select(
+            'id, text').execute()
+    comment_list=[responseVal['text'] for responseVal in response.data]
+    id_list=[responseVal['id'] for responseVal in response.data]
+    return {
+        'comment_list': comment_list,
+        'id_list': id_list
+    }
+    
+def findSimilarComments(msg: str):
+    commentsIdsListObj=fetchAllComments()
+    
+    vectorizer = TfidfVectorizer(ngram_range=(1, 2))
+    
+    comment_vectors=vectorizer.fit_transform(commentsIdsListObj['comment_list'])
+    msg_vector=vectorizer.transform([msg])
+    
+    similarities = cosine_similarity(msg_vector, comment_vectors).flatten()
+    
+    scoreIndexList= [{"score": score,"index": ind} for ind, score in enumerate(similarities)]
+    sorted_scoreIndexList=sorted(scoreIndexList, key=lambda listVal: listVal["score"], reverse=True)
+    
+    topCommentsList = [commentsIdsListObj["comment_list"][ val["index"] ] for val in sorted_scoreIndexList]
+    
+    return {
+        "topComments": topCommentsList[:5]
+    }    
 
 
 # API Creation
@@ -235,6 +265,14 @@ def generateAIReply(id_val: int) -> llmReplyResponseformat:
     }
     
     # return generateLLMReply(table_record.data[0]["text"], table_record.data[0]["sentiment"])
+    
+@app.get("/search")
+def findTopComments(q: Optional[int] = None):
+    
+    response=supabaseClient.table("Sentimentdata").select("*").eq("id", q).execute()
+    
+    comment_selected=response.data[0]["text"]
+    return findSimilarComments(comment_selected)
 
 if __name__ == "__main__":
     uvicorn.run(

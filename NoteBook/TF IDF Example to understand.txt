@@ -1,0 +1,371 @@
+"""
+Complete RAG Flow: Training → Query → Retrieve Similar Lines
+Shows EXACTLY how you get back the original text lines
+"""
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+
+print("="*80)
+print("COMPLETE RAG FLOW: FROM TRAINING TO GETTING SIMILAR LINES")
+print("="*80)
+
+# =============================================================================
+# STEP 1: Your Training Data (Original Lines/Comments)
+# =============================================================================
+
+print("\n" + "="*80)
+print("STEP 1: YOUR ORIGINAL TRAINING DATA (Raw Lines)")
+print("="*80)
+
+# These are your original comments/lines from database
+original_comments = [
+    "Python is excellent for machine learning and AI projects",
+    "I love using scikit-learn for building ML models",
+    "JavaScript is great for web development",
+    "TF-IDF vectorization works well for text similarity",
+    "Deep learning with PyTorch and TensorFlow",
+    "React and Vue are popular frontend frameworks",
+    "Natural language processing using transformers",
+    "Docker containers make deployment easier",
+    "Kubernetes orchestrates containerized applications",
+    "Python data science libraries like pandas and numpy"
+]
+
+# Store comment IDs (from your database)
+comment_ids = [101, 102, 103, 104, 105, 106, 107, 108, 109, 110]
+
+print("\n📝 Original Comments (what you have in database):")
+for i, (id, comment) in enumerate(zip(comment_ids, original_comments)):
+    print(f"   ID {id}: {comment}")
+
+# =============================================================================
+# STEP 2: Train Vectorizer and Create Vectors
+# =============================================================================
+
+print("\n" + "="*80)
+print("STEP 2: TRAIN VECTORIZER (Learn Vocabulary)")
+print("="*80)
+
+# Train on your comments
+vectorizer = TfidfVectorizer(max_features=100, ngram_range=(1, 2))
+comment_vectors = vectorizer.fit_transform(original_comments)
+
+print(f"\n✅ Training Complete!")
+print(f"   Vocabulary size: {len(vectorizer.vocabulary_)}")
+print(f"   Vector dimensions: {comment_vectors.shape[1]}")
+print(f"   Total comments vectorized: {comment_vectors.shape[0]}")
+
+# Show some vocabulary
+vocab_sample = list(vectorizer.vocabulary_.keys())[:10]
+print(f"\n📚 Sample vocabulary: {vocab_sample}")
+
+# =============================================================================
+# STEP 3: Store Vectors (alongside original text)
+# =============================================================================
+
+print("\n" + "="*80)
+print("STEP 3: STORAGE (What you save)")
+print("="*80)
+
+print("""
+You need to store:
+1. Vectorizer (vocabulary + IDF weights) → vectorizer.pkl
+2. Document vectors → vectors.npz
+3. Mapping: vector_index → original_text + comment_id
+
+Like this:
+┌─────────────────────────────────────────┐
+│ Index | Vector      | Text | Comment_ID │
+├─────────────────────────────────────────┤
+│   0   | [0.2, 0.5...] | "Python is..." | 101 │
+│   1   | [0.3, 0.1...] | "I love..."    | 102 │
+│   2   | [0.1, 0.7...] | "JavaScript.." | 103 │
+└─────────────────────────────────────────┘
+""")
+
+# =============================================================================
+# STEP 4: User Query Comes In
+# =============================================================================
+
+print("\n" + "="*80)
+print("STEP 4: NEW QUERY ARRIVES (API Request)")
+print("="*80)
+
+user_query = "machine learning with python"
+print(f"\n🔍 User Query: '{user_query}'")
+
+# Transform query using EXISTING vocabulary
+query_vector = vectorizer.transform([user_query])
+
+print(f"\n✅ Query transformed to vector")
+print(f"   Vector shape: {query_vector.shape}")
+print(f"   Non-zero elements: {query_vector.nnz}")
+
+# =============================================================================
+# STEP 5: Calculate Similarity (Vector Search)
+# =============================================================================
+
+print("\n" + "="*80)
+print("STEP 5: VECTOR SEARCH (Find Similar Comments)")
+print("="*80)
+
+# Calculate cosine similarity between query and ALL comment vectors
+similarities = cosine_similarity(query_vector, comment_vectors).flatten()
+
+print(f"\n📊 Similarity scores calculated for all {len(similarities)} comments")
+print(f"\nSimilarity scores:")
+for i, score in enumerate(similarities):
+    print(f"   Comment {i} (ID {comment_ids[i]}): {score:.4f}")
+
+# =============================================================================
+# STEP 6: Get Top-K Most Similar (This is what you return!)
+# =============================================================================
+
+print("\n" + "="*80)
+print("STEP 6: RETRIEVE SIMILAR LINES (Your API Response)")
+print("="*80)
+
+# Get top 3 most similar
+top_k = 3
+top_indices = similarities.argsort()[-top_k:][::-1]
+
+print(f"\n🎯 Top {top_k} Most Similar Comments:")
+print("\n" + "-"*80)
+
+results = []
+for rank, idx in enumerate(top_indices, 1):
+    result = {
+        'rank': rank,
+        'comment_id': comment_ids[idx],
+        'similarity': similarities[idx],
+        'text': original_comments[idx]  # ← THIS IS THE ORIGINAL LINE!
+    }
+    results.append(result)
+    
+    print(f"\n{rank}. Comment ID: {result['comment_id']}")
+    print(f"   Similarity Score: {result['similarity']:.4f}")
+    print(f"   📝 Original Text: \"{result['text']}\"")
+
+print("\n" + "-"*80)
+
+print(f"""
+✅ YES! You get back the ORIGINAL LINES!
+
+The flow is:
+1. User query: "{user_query}"
+2. Transform to vector using learned vocabulary
+3. Compare with all stored vectors
+4. Get indices of most similar vectors
+5. Use indices to retrieve ORIGINAL TEXT from storage
+6. Return original comments to user
+""")
+
+# =============================================================================
+# STEP 7: Complete Implementation with Storage
+# =============================================================================
+
+print("\n" + "="*80)
+print("STEP 7: COMPLETE IMPLEMENTATION")
+print("="*80)
+
+class CommentSearchSystem:
+    """
+    Complete system that stores and retrieves original text.
+    """
+    
+    def __init__(self):
+        self.vectorizer = None
+        self.comment_vectors = None
+        self.original_texts = []  # Store original comments
+        self.comment_ids = []     # Store IDs
+    
+    def train(self, comments, ids):
+        """Train on comments and store everything."""
+        # Store originals
+        self.original_texts = comments
+        self.comment_ids = ids
+        
+        # Train vectorizer and create vectors
+        self.vectorizer = TfidfVectorizer(max_features=1000, ngram_range=(1, 2))
+        self.comment_vectors = self.vectorizer.fit_transform(comments)
+        
+        print(f"✓ Trained on {len(comments)} comments")
+    
+    def search(self, query, top_k=5):
+        """Search and return ORIGINAL TEXT of similar comments."""
+        # Transform query
+        query_vector = self.vectorizer.transform([query])
+        
+        # Calculate similarities
+        similarities = cosine_similarity(query_vector, self.comment_vectors).flatten()
+        
+        # Get top-k indices
+        top_indices = similarities.argsort()[-top_k:][::-1]
+        
+        # Return original text using indices
+        results = []
+        for idx in top_indices:
+            results.append({
+                'comment_id': self.comment_ids[idx],
+                'similarity': float(similarities[idx]),
+                'text': self.original_texts[idx]  # ← Original line!
+            })
+        
+        return results
+    
+    def save(self):
+        """Save vectorizer, vectors, and text mapping."""
+        import pickle
+        from scipy.sparse import save_npz
+        
+        # Save vectorizer
+        with open('vectorizer.pkl', 'wb') as f:
+            pickle.dump(self.vectorizer, f)
+        
+        # Save vectors
+        save_npz('vectors.npz', self.comment_vectors)
+        
+        # Save text and IDs
+        with open('comments_data.pkl', 'wb') as f:
+            pickle.dump({
+                'texts': self.original_texts,
+                'ids': self.comment_ids
+            }, f)
+        
+        print("✓ Saved all data to disk")
+    
+    def load(self):
+        """Load everything from disk."""
+        import pickle
+        from scipy.sparse import load_npz
+        
+        # Load vectorizer
+        with open('vectorizer.pkl', 'rb') as f:
+            self.vectorizer = pickle.load(f)
+        
+        # Load vectors
+        self.comment_vectors = load_npz('vectors.npz')
+        
+        # Load text and IDs
+        with open('comments_data.pkl', 'rb') as f:
+            data = pickle.load(f)
+            self.original_texts = data['texts']
+            self.comment_ids = data['ids']
+        
+        print("✓ Loaded all data from disk")
+
+
+# Demo the complete system
+print("\n" + "-"*80)
+print("DEMO: Complete System")
+print("-"*80)
+
+system = CommentSearchSystem()
+system.train(original_comments, comment_ids)
+
+# Search
+query = "python data science"
+print(f"\n🔍 Searching for: '{query}'")
+
+results = system.search(query, top_k=3)
+
+print(f"\n📋 Results (Original Text Retrieved):")
+for i, result in enumerate(results, 1):
+    print(f"\n{i}. ID: {result['comment_id']} | Score: {result['similarity']:.4f}")
+    print(f"   Text: \"{result['text']}\"")
+
+# =============================================================================
+# VISUAL FLOW DIAGRAM
+# =============================================================================
+
+print("\n" + "="*80)
+print("VISUAL FLOW: FROM QUERY TO ORIGINAL TEXT")
+print("="*80)
+
+print("""
+                        USER QUERY
+                   "machine learning python"
+                            │
+                            ↓
+                    ┌───────────────┐
+                    │  Transform    │
+                    │  using        │
+                    │  Vocabulary   │
+                    └───────────────┘
+                            │
+                            ↓
+                    Query Vector
+                    [0.5, 0.3, 0.8, ...]
+                            │
+                            ↓
+                    ┌───────────────┐
+                    │ Cosine        │
+                    │ Similarity    │
+                    │ with ALL      │
+                    │ doc vectors   │
+                    └───────────────┘
+                            │
+                            ↓
+                    Similarity Scores
+                    [0.85, 0.12, 0.91, 0.05, ...]
+                            │
+                            ↓
+                    ┌───────────────┐
+                    │  Get Top-K    │
+                    │  Indices      │
+                    └───────────────┘
+                            │
+                            ↓
+                    Top Indices: [2, 0, 4]
+                            │
+                            ↓
+                    ┌───────────────┐
+                    │  USE indices  │
+                    │  to get       │
+                    │  ORIGINAL     │
+                    │  TEXT         │
+                    └───────────────┘
+                            │
+                            ↓
+                    Return Original Lines:
+                    - "Python is excellent..."
+                    - "I love using scikit-learn..."
+                    - "Python data science libraries..."
+
+✅ You get back the EXACT original text!
+""")
+
+# =============================================================================
+# IMPORTANT CONCEPT
+# =============================================================================
+
+print("\n" + "="*80)
+print("KEY CONCEPT: Index Mapping")
+print("="*80)
+
+print("""
+The SECRET is maintaining the index mapping:
+
+Storage Structure:
+┌─────────────────────────────────────────────────────────┐
+│ Array Index │ Vector         │ Original Text  │ DB ID  │
+├─────────────────────────────────────────────────────────┤
+│     0       │ [0.2, 0.5...]  │ "Python is..." │  101   │
+│     1       │ [0.3, 0.1...]  │ "I love..."    │  102   │
+│     2       │ [0.1, 0.7...]  │ "JavaScript"   │  103   │
+└─────────────────────────────────────────────────────────┘
+
+When similarity search returns index 0:
+→ Look up index 0 in original_texts[]
+→ Get "Python is excellent for machine learning..."
+→ Also get comment_id = 101
+
+This is why you MUST store:
+1. Vectors (for similarity calculation)
+2. Original text (to return to user)
+3. IDs (to link back to database)
+
+All three arrays must stay synchronized!
+""")

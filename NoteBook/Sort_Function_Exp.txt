@@ -1,0 +1,83 @@
+Absolutely! Let’s break down this line step by step:
+
+```python
+similarity_list_sorted = sorted(similarity_list, key=lambda x: x["score"], reverse=True)
+```
+
+---
+
+### 1️⃣ `sorted()`
+
+* `sorted()` is a **built-in Python function** that returns a **new sorted list** from any iterable (like a list of dictionaries or tuples).
+* Syntax:
+
+```python
+sorted(iterable, key=..., reverse=...)
+```
+
+---
+
+### 2️⃣ `similarity_list`
+
+* This is the list you created:
+
+```python
+similarity_list = [{"index": idx, "score": score} for idx, score in enumerate(similarities)]
+```
+
+* Each element is a **dictionary** with two keys:
+
+  * `"index"` → index of the comment
+  * `"score"` → cosine similarity score
+
+Example:
+
+```python
+[{"index": 0, "score": 0.87}, {"index": 1, "score": 0.65}, {"index": 2, "score": 0.92}]
+```
+
+---
+
+### 3️⃣ `key=lambda x: x["score"]`
+
+* The `key` argument tells `sorted()` **which value to use for sorting**.
+* `lambda x: x["score"]` is an **anonymous function** (lambda) that:
+
+  * Takes one element of the list (`x`)
+  * Returns `x["score"]`
+* So `sorted()` will compare elements based on their `"score"` value.
+
+---
+
+### 4️⃣ `reverse=True`
+
+* By default, `sorted()` sorts in **ascending order** (small → large).
+* `reverse=True` flips it to **descending order** (large → small).
+
+So after sorting, the **highest scores come first**.
+
+---
+
+### 🔹 Example
+
+```python
+similarity_list = [{"index": 0, "score": 0.87},
+                   {"index": 1, "score": 0.65},
+                   {"index": 2, "score": 0.92}]
+
+similarity_list_sorted = sorted(similarity_list, key=lambda x: x["score"], reverse=True)
+
+print(similarity_list_sorted)
+```
+
+**Output:**
+
+```python
+[{'index': 2, 'score': 0.92}, {'index': 0, 'score': 0.87}, {'index': 1, 'score': 0.65}]
+```
+
+✅ Now the list is **sorted by similarity score from highest to lowest**, so the first elements are the most similar comments.
+
+---
+
+If you want, I can also show a **more Pythonic one-liner** to directly get the **top 5 comments and their scores** without creating extra variables. Do you want me to show that?
