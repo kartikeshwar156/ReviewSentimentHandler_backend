@@ -24,6 +24,8 @@ import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+import pandas as pd
+
 
 logger = logging.getLogger(__name__)
 
@@ -119,39 +121,46 @@ def generateLLMReply(comment: str, comment_sentiment: str) -> str:
        Just follow this one rule
        """
     )
-    
+
     print(response.text)
     return response.text
 
+
 def fetchAllComments():
-    logger.info("fetching all rows with their ids, and text column (representing the customer's comment)")
+    logger.info(
+        "fetching all rows with their ids, and text column (representing the customer's comment)")
     response = supabaseClient.table('Sentimentdata').select(
-            'id, text').execute()
-    comment_list=[responseVal['text'] for responseVal in response.data]
-    id_list=[responseVal['id'] for responseVal in response.data]
+        'id, text').execute()
+    comment_list = [responseVal['text'] for responseVal in response.data]
+    id_list = [responseVal['id'] for responseVal in response.data]
     return {
         'comment_list': comment_list,
         'id_list': id_list
     }
-    
+
+
 def findSimilarComments(msg: str):
-    commentsIdsListObj=fetchAllComments()
-    
+    commentsIdsListObj = fetchAllComments()
+
     vectorizer = TfidfVectorizer(ngram_range=(1, 2))
-    
-    comment_vectors=vectorizer.fit_transform(commentsIdsListObj['comment_list'])
-    msg_vector=vectorizer.transform([msg])
-    
+
+    comment_vectors = vectorizer.fit_transform(
+        commentsIdsListObj['comment_list'])
+    msg_vector = vectorizer.transform([msg])
+
     similarities = cosine_similarity(msg_vector, comment_vectors).flatten()
-    
-    scoreIndexList= [{"score": score,"index": ind} for ind, score in enumerate(similarities)]
-    sorted_scoreIndexList=sorted(scoreIndexList, key=lambda listVal: listVal["score"], reverse=True)
-    
-    topCommentsList = [commentsIdsListObj["comment_list"][ val["index"] ] for val in sorted_scoreIndexList]
-    
+
+    scoreIndexList = [{"score": score, "index": ind}
+                      for ind, score in enumerate(similarities)]
+    sorted_scoreIndexList = sorted(
+        scoreIndexList, key=lambda listVal: listVal["score"], reverse=True)
+
+    topCommentsList = [commentsIdsListObj["comment_list"]
+                       [val["index"]] for val in sorted_scoreIndexList]
+
     return {
         "topComments": topCommentsList[:5]
-    }    
+    }
 
 
 # API Creation
@@ -229,50 +238,87 @@ def filterRecordsFetch(location: Optional[str] = None, sentiment: Optional[str] 
         raise HTTPException(status_code=500, detail="Failed to fetch records")
 
 
-@app.post("/reviews/{id_val}/sugges-reply")
+@app.post("/reviews/{id_val}/suggest-reply")
 def generateAIReply(id_val: int) -> llmReplyResponseformat:
-    logger.info("Fetching reply for customer's comment on the restaurant")
-    
-    table_record = supabaseClient.table("Sentimentdata").select("*").eq("id",id_val).execute()
-    
-    print(table_record)
+    try:
+        logger.info("Fetching reply for customer's comment on the restaurant")
+
+        table_record = supabaseClient.table("Sentimentdata").select("*").eq("id", id_val).execute()
+
+        print(table_record)
     # print(generateLLMReply(table_record.data[0]["text"], table_record.data[0]["sentiment"]))
-    final_LLM_response = generateLLMReply(table_record.data[0]["text"], table_record.data[0]["sentiment"])
-    
-    print(f"final_llm_response -> {final_LLM_response}")
-    
-    final_json_response=  final_LLM_response[final_LLM_response.find('{'):final_LLM_response.rfind('}')+1]
-    LLM_reply = final_LLM_response[final_LLM_response.find('*')+1:final_LLM_response.rfind('*')]
-    LLM_logic = final_LLM_response[final_LLM_response.find('#')+1:final_LLM_response.rfind('#')]
-    
-    print(f"--|-- {LLM_reply} and {LLM_logic}")
-    
-    recordSentiment=table_record.data[0]["sentiment"]
-    recordTopic=table_record.data[0]["topic"]
-    
-    insert_obj = {
-        "llmReply":LLM_reply,
-        "replyLogic":LLM_logic
-    }
-    
-    supabaseClient.table('Sentimentdata').update(insert_obj).eq("id", id_val).execute()
-    
-    return {
-        "reply":LLM_reply,
-        "logic":LLM_logic,
-        "sentiment":recordSentiment,
-        "topic":recordTopic
-    }
-    
+        final_LLM_response = generateLLMReply(table_record.data[0]["text"], table_record.data[0]["sentiment"])
+
+        print(f"final_llm_response -> {final_LLM_response}")
+
+        final_json_response = final_LLM_response[final_LLM_response.find('{'):final_LLM_response.rfind('}')+1]
+        LLM_reply = final_LLM_response[final_LLM_response.find('*')+1:final_LLM_response.rfind('*')]
+        LLM_logic = final_LLM_response[final_LLM_response.find('#')+1:final_LLM_response.rfind('#')]
+
+        print(f"--|-- {LLM_reply} and {LLM_logic}")
+
+        recordSentiment = table_record.data[0]["sentiment"]
+        recordTopic = table_record.data[0]["topic"]
+
+        insert_obj = {
+            "llmReply": LLM_reply,
+            "replyLogic": LLM_logic
+        }
+
+        supabaseClient.table('Sentimentdata').update(insert_obj).eq("id", id_val).execute()
+
+        return {
+            "reply": LLM_reply,
+            "logic": LLM_logic,
+            "sentiment": recordSentiment,
+            "topic": recordTopic
+        }
+    except Exception as e:
+        logger.error(f"Error while suggesting reply: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to suggest reply")
+
     # return generateLLMReply(table_record.data[0]["text"], table_record.data[0]["sentiment"])
-    
+
+
 @app.get("/search")
 def findTopComments(q: Optional[int] = None):
-    
-    response=supabaseClient.table("Sentimentdata").select("*").eq("id", q).execute()
-    
-    comment_selected=response.data[0]["text"]
-    return findSimilarComments(comment_selected)
+    try:
+        response = supabaseClient.table("Sentimentdata").select("*").eq("id", q).execute()
+
+        comment_selected = response.data[0]["text"]
+        return findSimilarComments(comment_selected)
+    except Exception as e:
+        logger.error(f"Error while searching similar comments: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to search similar comments")
+
+
+@app.get("/analytics")
+def calculateAnalytics():
+    try:
+        response = supabaseClient.table("Sentimentdata").select("sentiment, topic").execute()
+
+        dataPandasformat = pd.DataFrame(response.data)
+
+        groupedSentiment = dataPandasformat.groupby("sentiment").size().reset_index(name='count').to_dict(orient="records")
+        groupedTopic = dataPandasformat.groupby("topic").size().reset_index(name="count").to_dict(orient="records")
+
+        return {
+            "groupedSentiment": groupedSentiment,
+            "groupedTopic": groupedTopic
+        }
+    except Exception as e:
+        logger.error(f"Error while calculating analytics: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to analytics")
+
+@app.get("/health")
+def getHealth():
+    try:
+        return {
+            "messsage": "service is Healthy and running"
+        }
+    except Exception as e:
+        logger.error(f"some error has occured: {str(e)}")
+        raise HTTPException(status_code=500, detail="some error occured")
 
 if __name__ == "__main__":
     uvicorn.run(

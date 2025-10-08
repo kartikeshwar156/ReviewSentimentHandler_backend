@@ -1,0 +1,16 @@
+groupedSentiment = dataPandasformat.groupby("sentiment").size().reset_index(name='count')
+
+this will give us a pandas dataframe not a dictionary
+
+------------------------------
+I/P ->
+
+grouped_dict = groupedSentiment.to_dict(orient="records")
+print(grouped_dict)
+
+O/P ->
+
+# [{'sentiment': 'negative', 'count': 5}, {'sentiment': 'neutral', 'count': 8}, {'sentiment': 'positive', 'count': 12}]
+------------------------------
+
+to_dict(orient="records") -> will convert it to dictionary
