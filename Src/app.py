@@ -6,6 +6,8 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+
 
 from datetime import datetime
 
@@ -27,7 +29,19 @@ from sklearn.metrics.pairwise import cosine_similarity
 import pandas as pd
 
 
+
 logger = logging.getLogger(__name__)
+
+# API Creation
+
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # or specify your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # This is to find the path to .env file
@@ -163,9 +177,7 @@ def findSimilarComments(msg: str):
     }
 
 
-# API Creation
 
-app = FastAPI()
 
 
 @app.post("/ingest", response_model=GeneralResponse)
@@ -210,6 +222,24 @@ def findCompleteRecord(id_val: int):
         logger.error("Error Occured while fetching record from database: {e}")
         raise HTTPException(
             status_code=500, detail=f"Error occured while storing data: {str(e)}")
+        
+@app.post("/reviews/save/{id_val}")
+def saveCompleteRecord(request: Review, id_val: int):
+    reviews_data = request.model_dump()
+            
+    print(reviews_data)
+        
+    response = supabaseClient.table('Sentimentdata').update(reviews_data).eq("id", id_val).execute()
+    
+    print(reviews_data)
+    
+    curTimeStamp = datetime.now().isoformat()
+
+    return {
+        "message": "reviews inserted successfully",
+        "status": "200",
+        "timestamp": curTimeStamp
+    }
 
 
 @app.get("/reviews")

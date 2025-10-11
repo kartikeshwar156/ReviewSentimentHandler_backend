@@ -8,6 +8,8 @@ class Review(BaseModel):
    date: str
    sentiment: Optional[str] = None
    topic: Optional[str] = None
+   llmReply: Optional[str] = None
+   replyLogic: Optional[str] = None
    
 class ReviewsRequest(BaseModel):
    reviews: List[Review]
