@@ -54,7 +54,7 @@ load_dotenv()
 url = os.getenv("SUPABASE_URL", "https://ihhkylfceotjdslmxgvk.supabase.co")
 key = os.getenv("SUPABASE_KEY", "sb_secret_PPwzbAcWIm69HTsGrh9pEw_ZzgHPU0A")
 server_host = os.getenv("HOST", "0.0.0.0")
-server_port = os.getenv("PORT", "8080")
+server_port = os.getenv("PORT", 8080)
 llm_model = os.getenv("llm_model", "gemini-2.5-flash")
 llm_api_key = os.getenv(
     "llm_api_key", "AIzaSyCOOVfKF5QgrextrcJ0B2Cjg9FUQQSgrXQ")
