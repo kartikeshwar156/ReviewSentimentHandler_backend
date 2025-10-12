@@ -28,3 +28,23 @@ class llmReplyResponseformat(BaseModel):
    sentiment: str
    topic: str
    
+class filteredRecord(BaseModel):
+   data: list[Review]
+   
+class similarComments(BaseModel):
+   topComments: list[str]
+   
+class sentimentCountClass(BaseModel):
+   sentiment: str
+   count: int
+   
+class topicCountClass(BaseModel):
+   topic: str
+   count: int
+   
+class analyticsClass(BaseModel):
+   groupedSentiment: list[sentimentCountClass]
+   groupedTopic: list[topicCountClass]
+   
+class healthMsg(BaseModel):
+   message: str

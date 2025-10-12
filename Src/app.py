@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv, find_dotenv
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Header, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from datetime import datetime
 
-from models import Review, ReviewsRequest, GeneralResponse, rowRequest, llmReplyResponseformat
+from models import Review, ReviewsRequest, GeneralResponse, rowRequest, llmReplyResponseformat, filteredRecord, similarComments,analyticsClass, healthMsg
 import logging
 
 from transformers import pipeline
@@ -58,6 +58,7 @@ server_port = os.getenv("PORT", 8080)
 llm_model = os.getenv("llm_model", "gemini-2.5-flash")
 llm_api_key = os.getenv(
     "llm_api_key", "AIzaSyCOOVfKF5QgrextrcJ0B2Cjg9FUQQSgrXQ")
+project_API_key = os.getenv("api_key", "1234567890")
 
 # print(url)
 
@@ -181,8 +182,11 @@ def findSimilarComments(msg: str):
 
 
 @app.post("/ingest", response_model=GeneralResponse)
-def insertReviewData(request: ReviewsRequest):
+def insertReviewData(request: ReviewsRequest, api_key: str = Header(...)):
     try:
+        if(api_key != project_API_key):
+            raise HTTPException ( status_code=500, detail=f"API key is invalid: {str(e)}")
+        
         # print(request.reviews[0].model_dump())
         reviews_data = [reviewVal.model_dump()
                         for reviewVal in request.reviews]
@@ -210,9 +214,12 @@ def insertReviewData(request: ReviewsRequest):
             status_code=500, detail=f"Error occured while storing data: {str(e)}")
 
 
-@app.get("/reviews/{id_val}")
-def findCompleteRecord(id_val: int):
+@app.get("/reviews/{id_val}", response_model=Review)
+def findCompleteRecord(id_val: int, api_key: str = Header(...)):
     try:
+        if(api_key != project_API_key):
+            raise HTTPException ( status_code=500, detail=f"API key is invalid: {str(e)}")
+        
         logger.info("Started Finding Records")
         response = supabaseClient.table('Sentimentdata').select(
             '*').eq('id', id_val).execute()
@@ -223,28 +230,38 @@ def findCompleteRecord(id_val: int):
         raise HTTPException(
             status_code=500, detail=f"Error occured while storing data: {str(e)}")
         
-@app.post("/reviews/save/{id_val}")
-def saveCompleteRecord(request: Review, id_val: int):
-    reviews_data = request.model_dump()
-            
-    print(reviews_data)
-        
-    response = supabaseClient.table('Sentimentdata').update(reviews_data).eq("id", id_val).execute()
-    
-    print(reviews_data)
-    
-    curTimeStamp = datetime.now().isoformat()
-
-    return {
-        "message": "reviews inserted successfully",
-        "status": "200",
-        "timestamp": curTimeStamp
-    }
-
-
-@app.get("/reviews")
-def filterRecordsFetch(location: Optional[str] = None, sentiment: Optional[str] = None, q: Optional[str] = None):
+@app.post("/reviews/save/{id_val}", response_model=GeneralResponse)
+def saveCompleteRecord(request: Review, id_val: int, api_key: str = Header(...)):
     try:
+        if(api_key != project_API_key):
+            raise HTTPException ( status_code=500, detail=f"API key is invalid: {str(e)}")
+        
+        reviews_data = request.model_dump()
+            
+        print(reviews_data)
+        
+        response = supabaseClient.table('Sentimentdata').update(reviews_data).eq("id", id_val).execute()
+    
+        print(reviews_data)
+    
+        curTimeStamp = datetime.now().isoformat()
+
+        return {
+            "message": "reviews inserted successfully",
+            "status": "200",
+            "timestamp": curTimeStamp
+        }
+    except Exception as e:
+        logger.error(f"Error saving record with given ID: {id_val} {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to save record")
+
+
+@app.get("/reviews", response_model=filteredRecord)
+def filterRecordsFetch(location: Optional[str] = None, sentiment: Optional[str] = None, q: Optional[str] = None, api_key: str = Header(...)):
+    try:
+        if(api_key != project_API_key):
+            raise HTTPException ( status_code=500, detail=f"API key is invalid: {str(e)}")
+        
         logger.info("Started Filtering Records")
 
         query = supabaseClient.table('Sentimentdata').select('*')
@@ -268,9 +285,12 @@ def filterRecordsFetch(location: Optional[str] = None, sentiment: Optional[str] 
         raise HTTPException(status_code=500, detail="Failed to fetch records")
 
 
-@app.post("/reviews/{id_val}/suggest-reply")
-def generateAIReply(id_val: int) -> llmReplyResponseformat:
+@app.post("/reviews/{id_val}/suggest-reply", response_model=llmReplyResponseformat)
+def generateAIReply(id_val: int, api_key: str = Header(...)) -> llmReplyResponseformat:
     try:
+        if(api_key != project_API_key):
+            raise HTTPException ( status_code=500, detail=f"API key is invalid: {str(e)}")
+        
         logger.info("Fetching reply for customer's comment on the restaurant")
 
         table_record = supabaseClient.table("Sentimentdata").select("*").eq("id", id_val).execute()
@@ -310,9 +330,12 @@ def generateAIReply(id_val: int) -> llmReplyResponseformat:
     # return generateLLMReply(table_record.data[0]["text"], table_record.data[0]["sentiment"])
 
 
-@app.get("/search")
-def findTopComments(q: Optional[int] = None):
+@app.get("/search", response_model=similarComments)
+def findTopComments(q: Optional[int] = None, api_key: str = Header(...)):
     try:
+        if(api_key != project_API_key):
+            raise HTTPException ( status_code=500, detail=f"API key is invalid: {str(e)}")
+        
         response = supabaseClient.table("Sentimentdata").select("*").eq("id", q).execute()
 
         comment_selected = response.data[0]["text"]
@@ -322,9 +345,12 @@ def findTopComments(q: Optional[int] = None):
         raise HTTPException(status_code=500, detail="Failed to search similar comments")
 
 
-@app.get("/analytics")
-def calculateAnalytics():
+@app.get("/analytics", response_model=analyticsClass)
+def calculateAnalytics(api_key: str = Header(...)):
     try:
+        if(api_key != project_API_key):
+            raise HTTPException ( status_code=500, detail=f"API key is invalid: {str(e)}")
+        
         response = supabaseClient.table("Sentimentdata").select("sentiment, topic").execute()
 
         dataPandasformat = pd.DataFrame(response.data)
@@ -340,11 +366,11 @@ def calculateAnalytics():
         logger.error(f"Error while calculating analytics: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to analytics")
 
-@app.get("/health")
+@app.get("/health", response_model=healthMsg)
 def getHealth():
     try:
         return {
-            "messsage": "service is Healthy and running"
+            "message": "service is Healthy and running"
         }
     except Exception as e:
         logger.error(f"some error has occured: {str(e)}")
